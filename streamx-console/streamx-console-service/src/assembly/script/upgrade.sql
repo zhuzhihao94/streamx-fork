@@ -283,6 +283,8 @@ COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ------------------------------------- version: 1.2.4 START ---------------------------------------
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `t_alert_config`;
 CREATE TABLE `t_alert_config` (
@@ -303,13 +305,85 @@ CREATE TABLE `t_alert_config` (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci;
 
-alter table t_flink_app add column ALERT_ID bigint after END_TIME;
-alter table t_flink_app drop column ALERT_EMAIL;
+BEGIN;
+-- 增加 ALERT_ID 字段
+ALTER TABLE t_flink_app ADD COLUMN ALERT_ID bigint AFTER END_TIME;
+
+-- 转存历史邮件报警配置
+INSERT INTO t_alert_config(USER_ID, ALERT_NAME, ALERT_TYPE, EMAIL_PARAMS)
+SELECT a.USER_ID, concat('emailAlertConf-', (@rownum := @rownum + 1)) AS ALERT_NAME, 1 as ALERT_TYPE, a.ALERT_EMAIL
+from (select USER_ID, ALERT_EMAIL from t_flink_app where ALERT_EMAIL is not null group by USER_ID, ALERT_EMAIL) a,
+     (select @rownum := 0) t;
+
+-- 更新原表邮件配置 id
+UPDATE t_flink_app a INNER JOIN t_alert_config b ON a.ALERT_EMAIL = b.EMAIL_PARAMS
+    SET a.ALERT_ID = b.ID
+WHERE a.ALERT_EMAIL = b.EMAIL_PARAMS;
+
+-- 调整报警配置表 params 内容
+UPDATE t_alert_config
+SET EMAIL_PARAMS     = concat('{"contacts":"', EMAIL_PARAMS, '"}'),
+    DING_TALK_PARAMS = '{}',
+    WE_COM_PARAMS='{}',
+    LARK_PARAMS='{}'
+WHERE ALERT_TYPE = 1;
+-- 删除原 ALERT_EMAIL 字段
+ALTER TABLE t_flink_app DROP COLUMN ALERT_EMAIL;
 
 ALTER TABLE `t_flink_app` ADD COLUMN `OPTION_TIME` datetime DEFAULT NULL AFTER `CREATE_TIME`;
-ALTER TABLE t_setting modify column `VALUE` text ;
+ALTER TABLE t_setting modify COLUMN `VALUE` text ;
 INSERT INTO `t_setting` VALUES (14, 'docker.register.namespace', NULL, 'Docker Register Image namespace', 'Docker命名空间', 1);
 ALTER TABLE `t_flink_app` ADD COLUMN `INGRESS_TEMPLATE` text COLLATE utf8mb4_general_ci COMMENT 'ingress模版文件';
 ALTER TABLE `t_flink_app` ADD COLUMN `DEFAULT_MODE_INGRESS` text COLLATE utf8mb4_general_ci COMMENT '配置ingress的域名';
 ALTER TABLE `t_flink_app` ADD COLUMN `MODIFY_TIME` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER CREATE_TIME;
+
+
+-- 项目组
+DROP TABLE IF EXISTS `t_team`;
+CREATE TABLE `t_team`
+(
+    `TEAM_ID`     bigint       NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `TEAM_CODE`   varchar(255) NOT NULL COMMENT '团队标识 后续可以用于队列 资源隔离相关',
+    `TEAM_NAME`   varchar(255) NOT NULL COMMENT '团队名',
+    `CREATE_TIME` datetime     NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`TEAM_ID`) USING BTREE,
+    UNIQUE KEY `TEAM_CODE` (TEAM_CODE) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+insert into t_team values (1,'bigdata','BIGDATA','2022-02-21 18:00:00');
+
+-- 组与user 的对应关系
+DROP TABLE IF EXISTS `t_team_user`;
+CREATE TABLE `t_team_user`
+(
+    `TEAM_ID`    bigint   NOT NULL COMMENT 'teamId',
+    `USER_ID`     bigint   NOT NULL COMMENT 'userId',
+    `CREATE_TIME` datetime NOT NULL COMMENT '创建时间',
+    UNIQUE KEY `GROUP_USER` (`TEAM_ID`,`USER_ID`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- 给 app 和 project 加字段
+ALTER TABLE `t_flink_app` ADD COLUMN `TEAM_ID` bigint not null default 1 comment '任务所属组';
+ALTER TABLE `t_flink_project` ADD COLUMN `TEAM_ID` bigint not null default 1 comment '项目所属组';
+
+
+
+-- 添加用户组管理的权限
+INSERT INTO `t_menu` VALUES (100043, 100000, 'Team Management', '/system/team', 'system/team/Team', 'team:view', 'team', '0', '1', 1, NOW(), NULL);
+INSERT INTO `t_menu` VALUES (100044, 100043, 'add', NULL, NULL, 'team:add', NULL, '1', '1', NULL, NOW(), NULL);
+INSERT INTO `t_menu` VALUES (100045, 100043, 'update', NULL, NULL, 'team:update', NULL, '1', '1', NULL, NOW(), NULL);
+INSERT INTO `t_menu` VALUES (100046, 100043, 'delete', NULL, NULL, 'team:delete', NULL, '1', '1', NULL, NOW(), NULL);
+
+
+-- 给Admin添加权限
+INSERT INTO `t_role_menu` VALUES (100062, 100000, 100043);
+INSERT INTO `t_role_menu` VALUES (100063, 100000, 100044);
+INSERT INTO `t_role_menu` VALUES (100064, 100000, 100045);
+INSERT INTO `t_role_menu` VALUES (100065, 100000, 100046);
+
+
+COMMIT;
+
+SET FOREIGN_KEY_CHECKS = 1;
 ---------------------------------------- version: 1.2.4 END ---------------------------------------

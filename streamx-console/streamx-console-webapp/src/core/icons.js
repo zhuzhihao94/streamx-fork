@@ -20,7 +20,7 @@ import deploy from '@/assets/icons/deploy.svg?inline'
 import stream from '@/assets/icons/stream.svg?inline'
 import threshold from '@/assets/icons/threshold.svg?inline'
 import format from '@/assets/icons/format.svg?inline'
-import dingtalk from '@/assets/icons/dingtalk.svg'
+import dingtalk from '@/assets/icons/dingtalk.svg?inline'
 import mail from '@/assets/icons/mail.svg?inline'
 import sms from '@/assets/icons/sms.svg?inline'
 import message from '@/assets/icons/message.svg?inline'
@@ -45,7 +45,7 @@ import rollback from '@/assets/icons/rollback.svg?inline'
 import upload from '@/assets/icons/upload.svg?inline'
 import plus from '@/assets/icons/plus.svg?inline'
 import flame from '@/assets/icons/flame.svg?inline'
-import code from '@/assets/icons/code.svg?inline'
+import icode from '@/assets/icons/code.svg?inline'
 import copy from '@/assets/icons/copy.svg?inline'
 import swap from '@/assets/icons/swap.svg?inline'
 import github from '@/assets/icons/github.svg?inline'
@@ -97,7 +97,7 @@ export {
   upload,
   plus,
   flame,
-  code,
+  icode,
   copy,
   swap,
   github,

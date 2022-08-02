@@ -268,13 +268,24 @@
 
               <div class="list-content" style="width: 40%">
                 <span slot="title" text-align center>Alert Type</span><br><br>
-                <svg-icon role="img" name="mail" size="middle" v-if="item.alertType === 1 || item.alertType === 3 || item.alertType === 5 || item.alertType === 9 || item.alertType === 7 || item.alertType === 13 || item.alertType === 15"/>
-                <svg-icon role="img" name="dingtalk" size="middle" v-if="item.alertType === 2 || item.alertType === 3 || item.alertType === 6 || item.alertType === 10 || item.alertType === 7 || item.alertType === 14 || item.alertType === 15"/>
-                <svg-icon role="img" name="wecom" size="middle" v-if="item.alertType === 4 || item.alertType === 5 || item.alertType === 6 || item.alertType === 12 || item.alertType === 7 || item.alertType === 14 || item.alertType === 15"/>
-                <svg-icon role="img" name="message" size="middle" v-if="item.alertType === 8 || item.alertType === 9 || item.alertType === 10 || item.alertType === 12 || item.alertType === 11 || item.alertType === 14 || item.alertType === 15"/>
+                <svg-icon role="img" name="mail" size="middle" v-if="computeAlertType(item.alertType).indexOf(1) > -1 "/>
+                <svg-icon role="img" name="dingtalk" size="middle" v-if="computeAlertType(item.alertType).indexOf(2) > -1 "/>
+                <svg-icon role="img" name="wecom" size="middle" v-if="computeAlertType(item.alertType).indexOf(4) > -1 "/>
+                <svg-icon role="img" name="message" size="middle" v-if="computeAlertType(item.alertType).indexOf(8) > -1 "/>
+                <svg-icon role="img" name="lark" size="middle" v-if="computeAlertType(item.alertType).indexOf(16) > -1 "/>
               </div>
 
               <div slot="actions">
+                <a-tooltip title="Alert Test">
+                  <a-button
+                    @click.native="handleTestAlarm(item)"
+                    shape="circle"
+                    size="large"
+                    style="margin-left: 3px"
+                    class="control-button ctl-btn-color">
+                    <a-icon type="thunderbolt" />
+                  </a-button>
+                </a-tooltip>
                 <a-tooltip title="Edit Alert Config">
                   <a-button
                     @click.native="handleEditAlertConf(item)"
@@ -670,6 +681,7 @@
               <svg-icon role="img" v-if="o.value === 2" name="dingtalk"/>
               <svg-icon role="img" v-if="o.value === 4" name="wecom"/>
               <svg-icon role="img" v-if="o.value === 8" name="message"/>
+              <svg-icon role="img" v-if="o.value === 16" name="lark"/>
               {{ o.name }}
             </a-select-option>
           </a-select>
@@ -694,6 +706,7 @@
         <a-form-item
           v-if="alertType.indexOf(2)>-1"
           label="DingTalk Url"
+          defaultValue="https://oapi.dingtalk.com/robot/send"
           :label-col="{lg: {span: 5}, sm: {span: 7}}"
           :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
           <a-input
@@ -705,14 +718,43 @@
 
         <a-form-item
           v-if="alertType.indexOf(2)>-1"
-          label="DingTalk Token"
+          label="Access Token"
           :label-col="{lg: {span: 5}, sm: {span: 7}}"
           :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
           <a-input
             type="text"
             placeholder="Please enter the access token of DingTalk"
             allowClear
-            v-decorator="[ 'token', {rules: [{ required: true, message: 'DingTalk token is required' }]} ]"/>
+            v-decorator="[ 'dingtalkToken', {rules: [{ required: true, message: 'Access token is required' }]} ]"/>
+        </a-form-item>
+
+        <a-form-item
+          label="Secret Enable"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 17} }"
+          v-show="alertType.indexOf(2)>-1">
+          <a-tooltip title="DingTalk ecretToken is enable">
+            <a-switch
+              checked-children="ON"
+              un-checked-children="OFF"
+              :checked="dingtalkSecretEnable"
+              allowClear
+              @change="handleSetDingtalkSecretEnable"
+              v-decorator="[ 'dingtalkSecretEnable' ]" />
+          </a-tooltip>
+        </a-form-item>
+
+        <a-form-item
+          v-if="alertType.indexOf(2)>-1"
+          label="Secret Token"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
+          <a-input
+            :disabled="!dingtalkSecretEnable"
+            type="text"
+            placeholder="Please enter DingTalk SecretToken"
+            allowClear
+            v-decorator="[ 'dingtalkSecretToken', {rules: [{ required: dingtalkSecretEnable, message: 'DingTalk SecretToken is required' }]} ]"/>
         </a-form-item>
 
         <a-form-item
@@ -737,38 +779,10 @@
               checked-children="ON"
               un-checked-children="OFF"
               allowClear
-              :checked="isAll"
-              @change="handleIsAll"
-              v-decorator="[ 'isAll' ]"/>
+              :checked="dingtalkIsAtAll"
+              @change="handleDingtalkIsAtAll"
+              v-decorator="[ 'dingtalkIsAtAll' ]"/>
           </a-tooltip>
-        </a-form-item>
-
-        <a-form-item
-          label="Secret Enable"
-          :label-col="{lg: {span: 5}, sm: {span: 7}}"
-          :wrapper-col="{lg: {span: 16}, sm: {span: 17} }"
-          v-show="alertType.indexOf(2)>-1">
-          <a-tooltip title="DingTalk ecretToken is enable">
-            <a-switch
-              checked-children="ON"
-              un-checked-children="OFF"
-              :checked="secretEnable"
-              allowClear
-              @change="handleSetSecretEnable"
-              v-decorator="[ 'secretEnable' ]" />
-          </a-tooltip>
-        </a-form-item>
-
-        <a-form-item
-          v-if="alertType.indexOf(2)>-1 && secretEnable === true"
-          label="Secret Token"
-          :label-col="{lg: {span: 5}, sm: {span: 7}}"
-          :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
-          <a-input
-            type="text"
-            placeholder="Please enter DingTalk SecretToken"
-            allowClear
-            v-decorator="[ 'alertSecretToken', {rules: [{ required: true, message: 'DingTalk SecretToken is required' }]} ]"/>
         </a-form-item>
 
         <a-divider v-if="alertType.indexOf(4)>-1"><svg-icon role="img" name="wecom" size="middle"/> WeChat </a-divider>
@@ -807,6 +821,64 @@
             rows="4"
             placeholder="Please enter sms template"
             v-decorator="['alertSmsTemplate', {rules: [{ required: true, message: 'SMS Template is required' }]} ]"/>
+        </a-form-item>
+
+        <a-divider v-if="alertType.indexOf(16)>-1"><svg-icon role="img" name="lark" size="middle"/> Lark </a-divider>
+
+        <a-form-item
+          v-if="alertType.indexOf(16)>-1"
+          label="Lark Token"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
+          <a-input
+            type="text"
+            placeholder="Please enter the access token of LarkTalk"
+            allowClear
+            v-decorator="[ 'larkToken', {rules: [{ required: true, message: 'Lark token is required' }]} ]"/>
+        </a-form-item>
+
+        <a-form-item
+          label="At All User"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 17} }"
+          v-show="alertType.indexOf(16)>-1">
+          <a-tooltip title="Whether Notify All">
+            <a-switch
+              checked-children="ON"
+              un-checked-children="OFF"
+              allowClear
+              :checked="larkIsAtAll"
+              @change="handleLarkIsAtAll"
+              v-decorator="[ 'larkIsAtAll' ]"/>
+          </a-tooltip>
+        </a-form-item>
+
+        <a-form-item
+          label="Secret Enable"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 17} }"
+          v-show="alertType.indexOf(16)>-1">
+          <a-tooltip title="Lark secretToken is enable">
+            <a-switch
+              checked-children="ON"
+              un-checked-children="OFF"
+              :checked="larkSecretEnable"
+              allowClear
+              @change="handleSetLarkSecretEnable"
+              v-decorator="[ 'larkSecretEnable' ]" />
+          </a-tooltip>
+        </a-form-item>
+
+        <a-form-item
+          v-if="alertType.indexOf(16)>-1 && larkSecretEnable === true"
+          label="Lark Secret Token"
+          :label-col="{lg: {span: 5}, sm: {span: 7}}"
+          :wrapper-col="{lg: {span: 16}, sm: {span: 4} }">
+          <a-input
+            type="text"
+            placeholder="Please enter Lark SecretToken"
+            allowClear
+            v-decorator="[ 'larkSecretToken', {rules: [{ required: true, message: 'Lark SecretToken is required' }]} ]"/>
         </a-form-item>
 
       </a-form>
@@ -859,7 +931,7 @@ import {
   listWithOutPage as listWithOutPageAlert,
   remove as removeAlert,
   send as sendAlert
-} from '@/api/alertConf'
+} from '@/api/alert'
 
 import SvgIcon from '@/components/SvgIcon'
 import monaco from '@/views/flink/app/Monaco.yaml'
@@ -911,11 +983,14 @@ export default {
         {name: 'E-mail', value: 1, disabled: false},
         {name: 'Ding Talk', value: 2, disabled: false},
         {name: 'Wechat', value: 4, disabled: false},
-        {name: 'SMS', value: 8, disabled: false}
+        {name: 'SMS', value: 8, disabled: true},
+        {name: 'Lark', value: 16, disabled: false}
       ],
       alertType: [],
-      isAll: false,
-      secretEnable: false,
+      dingtalkIsAtAll: false,
+      larkIsAtAll: false,
+      dingtalkSecretEnable: false,
+      larkSecretEnable: false,
       totalItems: [],
       editor: null,
       flinkForm: null,
@@ -1150,17 +1225,6 @@ export default {
           this.optionClusters.starting.delete(item.id)
           this.handleMapUpdate('starting')
           this.handleClusterAll()
-        }else{
-          this.$swal.fire({
-            title: 'Failed',
-            icon: 'error',
-            width: this.exceptionPropWidth(),
-            html: '<pre class="propsException">' + resp.data.msg + '</pre>',
-            showCancelButton: true,
-            confirmButtonColor: '#55BDDDFF',
-            confirmButtonText: 'OK',
-            cancelButtonText: 'Close'
-          })
         }
       })
     },
@@ -1194,8 +1258,10 @@ export default {
       this.alertId = null
       this.alertFormVisible = flag
       this.alertType = []
-      this.isAll = false
-      this.secretEnable = false
+      this.dingtalkIsAtAll = false
+      this.dingtalkSecretEnable = false
+      this.larkIsAtAll = false
+      this.larkSecretEnable = false
       this.alertForm.resetFields()
     },
 
@@ -1211,43 +1277,65 @@ export default {
       })
     },
 
+    handleTestAlarm(item){
+      sendAlert({ id : item.id }).then(resp=>{
+        if (resp.data) {
+          this.$swal.fire({
+            icon: 'success',
+            title: 'Test Alert Config  successful!',
+            showConfirmButton: false,
+            timer: 2000
+          })
+        }
+        this.handleAlertConfigAll()
+      }).catch(err => {})
+    },
+
     handleEditAlertConf(item){
       this.alertId = item.id
       this.alertFormVisible = true
-      const alertType = []
-      const emailParams = JSON.parse(item.emailParams)
-      const dingTalkParams = JSON.parse(item.dingTalkParams)
-      const weComParams = JSON.parse(item.weComParams)
-
-      if (item.alertType === 1  || item.alertType === 3 || item.alertType === 5 || item.alertType === 9 || item.alertType === 7 || item.alertType === 13 || item.alertType === 15) {
-        alertType.push(1)
-      }
-      if (item.alertType === 2 || item.alertType === 3 || item.alertType === 6 || item.alertType === 10 || item.alertType === 7 || item.alertType === 14 || item.alertType === 15) {
-        alertType.push(2)
-      }
-      if (item.alertType === 4 || item.alertType === 5 || item.alertType === 6 || item.alertType === 12 || item.alertType === 7 || item.alertType === 14 || item.alertType === 15) {
-        alertType.push(4)
-      }
-      if (item.alertType === 8 || item.alertType === 9 || item.alertType === 10 || item.alertType === 12 || item.alertType === 11 || item.alertType === 14 || item.alertType === 15) {
-        alertType.push(8)
-      }
-      // console.log('当前告警：' + JSON.stringify(item))
-      console.log(JSON.stringify(alertType))
+      const alertType = this.computeAlertType(item.alertType)
       alertType.forEach((value,i) => {
         this.handleEditAlertType(value)
       })
-      this.isAll = dingTalkParams.isAtAll
-      this.secretEnable = dingTalkParams.secretEnable
+      var emailParams = {}
+      var dingTalkParams = {}
+      var weComParams = {}
+      var larkParams = {}
+      if (alertType.indexOf(1) > -1){
+        emailParams = JSON.parse(item.emailParams)
+      }
+      if (alertType.indexOf(2) > -1) {
+        dingTalkParams = JSON.parse(item.dingTalkParams)
+        this.dingtalkIsAtAll = dingTalkParams.isAtAll
+        this.dingtalkSecretEnable = dingTalkParams.secretEnable
+      }
+      if (alertType.indexOf(4) > -1) {
+        weComParams = JSON.parse(item.weComParams)
+      }
+      if (alertType.indexOf(16) > -1) {
+        larkParams = JSON.parse(item.larkParams)
+        this.larkIsAtAll = larkParams.isAtAll
+        this.larkSecretEnable = larkParams.secretEnable
+      }
+
+      console.log('告警参数：' + JSON.stringify(item))
       this.$nextTick(() => {
         this.alertForm.setFieldsValue({
           'alertName': item.alertName,
           'alertType': alertType,
           'alertEmail': emailParams.contacts,
           'alertDingURL': dingTalkParams.alertDingURL,
-          'token': dingTalkParams.token,
-          'alertSecretToken': dingTalkParams.secretToken,
+          'dingtalkToken': dingTalkParams.token,
+          'dingtalkSecretToken': dingTalkParams.secretToken,
           'alertDingUser': dingTalkParams.contacts,
-          'weToken': weComParams.token
+          'dingtalkIsAtAll': dingTalkParams.isAtAll,
+          'dingtalkSecretEnable': dingTalkParams.secretEnable,
+          'weToken': weComParams.token,
+          'larkToken': larkParams.token,
+          'larkIsAtAll': larkParams.isAtAll,
+          'larkSecretEnable':larkParams.secretEnable,
+          'larkSecretToken':larkParams.secretToken
         })
       })
     },
@@ -1300,6 +1388,22 @@ export default {
       })
     },
 
+
+    computeAlertType(level){
+        if (level === null) {
+            level = 0
+        }
+        const result = new Array()
+        while (level != 0) {
+            // 获取最低位的 1
+            const code = level & -level
+            result.push(code)
+            // 将最低位置 0
+            level ^= code
+        }
+        return result
+    },
+
     handleAlertConfigAll() {
       listWithOutPageAlert({}).then((resp) => {
         this.alerts = resp.data
@@ -1316,18 +1420,24 @@ export default {
           alertType: eval(values.alertType.join('+')),
           emailParams: {contacts: values.alertEmail},
           dingTalkParams: {
-            token: values.token,
+            token: values.dingtalkToken,
             contacts: values.alertDingUser,
-            isAtAll: values.isAll,
+            isAtAll: values.dingtalkIsAtAll,
             alertDingURL: values.alertDingURL,
-            secretEnable: values.secretEnable,
-            secretToken: values.alertSecretToken
+            secretEnable: values.dingtalkSecretEnable,
+            secretToken: values.dingtalkSecretToken
           },
           weComParams:{
             token:values.weToken
+          },
+          larkParams:{
+            token: values.larkToken,
+            isAtAll: values.larkIsAtAll,
+            secretEnable: values.larkSecretEnable,
+            secretToken: values.larkSecretToken
           }
         }
-        console.log('提交告警参数：' + JSON.stringify(param))
+        console.log('更新告警参数：' + JSON.stringify(param))
         if (!err) {
           if(!param.id){//添加新告警
             existsAlert({'alertName': param.alertName}).then((resp)=>{
@@ -1552,6 +1662,11 @@ export default {
 
     handleSync() {
       sync({id: this.versionId}).then((resp) => {
+        getFlink({id: this.versionId}).then((resp) => {
+          this.flinkHome = resp.data.flinkHome
+          this.flinkConf = resp.data.flinkConf
+          this.handleInitEditor()
+        }),
         this.$swal.fire({
           icon: 'success',
           title: this.flinkName.concat(' conf sync successful!'),
@@ -1575,14 +1690,20 @@ export default {
       }
     },
 
-    handleSetSecretEnable(checked) {
-      console.log('SecretEnable是否选中:' + checked)
-      this.secretEnable = checked
+    handleSetDingtalkSecretEnable(checked) {
+      this.dingtalkSecretEnable = checked
     },
 
-    handleIsAll(checked) {
-      console.log('isAll是否选中:' + checked)
-      this.isAll = checked
+    handleSetLarkSecretEnable(checked) {
+      this.larkSecretEnable = checked
+    },
+
+    handleDingtalkIsAtAll(checked) {
+      this.dingtalkIsAtAll = checked
+    },
+
+    handleLarkIsAtAll(checked) {
+      this.larkIsAtAll = checked
     },
 
     handleCloseConf() {

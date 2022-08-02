@@ -219,7 +219,16 @@
 
       <div slot="extra">
         <a-input-group compact>
-          <a-select placeholder="Type" allowClear @change="handleChangeJobType" style="width: 80px">
+          <a-select placeholder="Team" allowClear @change="handleChangeTeam" style="width: 140px">
+            <a-select-option v-for="t in teamData" :key="t.teamId"> {{ t.teamName }} </a-select-option>
+          </a-select>
+          <a-select placeholder="User" allowClear @change="handleChangeUser" style="margin-left: 16px;width: 120px">
+            <a-select-option v-for="u in users" :key="u.userId">
+              <span v-if="u.nickName"> {{ u.nickName }} </span>
+              <span v-else> {{ u.username }} </span>
+            </a-select-option>
+          </a-select>
+          <a-select placeholder="Type" allowClear @change="handleChangeJobType" style="margin-left: 16px;width: 80px">
             <a-select-option value="1">JAR</a-select-option>
             <a-select-option value="2">SQL</a-select-option>
           </a-select>
@@ -227,7 +236,7 @@
             placeholder="Search..."
             v-model="searchText"
             @change="handleSearch"
-            style="margin-left: 16px; width: 250px;" />
+            style="width: 250px;"/>
           <a-button
             type="primary"
             icon="plus"
@@ -297,17 +306,6 @@
               title="the application has changed."/>
           </template>
 
-        </template>
-
-        <template
-          slot="id"
-          slot-scope="text, record">
-          <span
-            class="link pointer"
-            v-clipboard:copy="record.id"
-            v-clipboard:success="handleCopySuccess">
-            {{ record.id }}
-          </span>
         </template>
 
         <template
@@ -453,6 +451,7 @@
               title="Are you sure delete this job ?"
               cancel-text="No"
               ok-text="Yes"
+              v-permit="'app:delete'"
               @confirm="handleDelete(record)">
               <a-button
                 type="danger"
@@ -562,7 +561,7 @@
                 <template v-if="appBuildDetail.pipeline.pipeType === 2 && appBuildDetail.docker !== null">
                   <template
                     v-if="item.seq === 5 && appBuildDetail.docker.pull !== null && appBuildDetail.docker.pull.layers !== null">
-                    <template v-for="layer in appBuildDetail.docker.pull.layers">
+                    <template v-for="(layer,index) in appBuildDetail.docker.pull.layers">
                       <a-row :key="layer.layerId" style="margin-bottom: 5px;">
                         <a-space size="small">
                           <a-icon type="arrow-right"/>
@@ -575,7 +574,7 @@
                         </a-space>
                       </a-row>
                       <template v-if="layer.totalMb != null && layer.totalMb !== 0">
-                        <a-row :key="layer.layerId" style="margin-left: 20px; margin-right: 50px; margin-bottom: 15px;">
+                        <a-row :key="index" style="margin-left: 20px; margin-right: 50px; margin-bottom: 15px;">
                           <a-progress
                             :percent="layer.percent"
                             status="active"/>
@@ -601,7 +600,7 @@
 
                   <template
                     v-else-if="item.seq === 7 && appBuildDetail.docker.push !== null && appBuildDetail.docker.push.layers !== null">
-                    <template v-for="layer in appBuildDetail.docker.push.layers">
+                    <template v-for="(layer,index) in appBuildDetail.docker.push.layers">
                       <a-row :key="layer.layerId" style="margin-bottom: 5px;">
                         <a-space size="small">
                           <a-icon type="arrow-right"/>
@@ -614,7 +613,7 @@
                         </a-space>
                       </a-row>
                       <template v-if="layer.totalMb != null && layer.totalMb !== 0">
-                        <a-row :key="layer.layerId" style="margin-left: 20px; margin-right: 50px; margin-bottom: 15px;">
+                        <a-row :key="index" style="margin-left: 20px; margin-right: 50px; margin-bottom: 15px;">
                           <a-progress
                             :percent="layer.percent"
                             status="active"/>
@@ -1011,7 +1010,8 @@ import 'xterm/css/xterm.css'
 import {baseUrl} from '@/api/baseUrl'
 import SvgIcon from '@/components/SvgIcon'
 import storage from '@/utils/storage'
-import notification from 'ant-design-vue/lib/notification'
+import {listByUser as getUserTeam} from '@/api/team'
+import {list as listUser} from '@/api/user'
 
 export default {
   components: {Ellipsis, State, SvgIcon},
@@ -1032,9 +1032,13 @@ export default {
           running: 0
         }
       },
+      teamData: [],
+      users: [],
       expandedRow: ['appId', 'jmMemory', 'tmMemory', 'totalTM', 'totalSlot', 'availableSlot', 'flinkCommit'],
       queryParams: {},
       jobType: null,
+      teamId: null,
+      userId: null,
       sortedInfo: null,
       filteredInfo: null,
       queryInterval: 2000,
@@ -1103,44 +1107,34 @@ export default {
       let {sortedInfo, filteredInfo} = this
       sortedInfo = sortedInfo || {}
       filteredInfo = filteredInfo || {}
-      return [{
-        title: 'ID',
-        dataIndex: 'id',
-        width: 100,
-        scopedSlots: {customRender: 'id'},
-      } , {
+      return [ {
         title: 'Application Name',
         dataIndex: 'jobName',
-        width: 300,
+        width: 320,
         scopedSlots: {customRender: 'jobName'},
-      }, {
+      },  {
         title: 'Flink Version',
         dataIndex: 'flinkVersion',
-        width: 120
+        width: 130
       }, {
         title: 'Owner',
         dataIndex: 'nickName',
-        width: 120
+        width: 130
       }, {
         title: 'Run Status',
         dataIndex: 'state',
-        width: 130,
+        width: 120,
         scopedSlots: {customRender: 'state'},
         filters: [
           {text: 'ADDED', value: 0},
-          {text: 'DEPLOYING', value: 1},
-          {text: 'DEPLOYED', value: 2},
-          {text: 'CREATED', value: 4},
-          {text: 'STARTING', value: 5},
-          {text: 'RUNNING', value: 7},
-          {text: 'FAILED', value: 9},
-          {text: 'CANCELED', value: 11},
-          {text: 'FINISHED', value: 12},
-          {text: 'SUSPENDED', value: 13},
-          {text: 'LOST', value: 15},
-          {text: 'SILENT', value: 19},
-          {text: 'TERMINATED', value: 20},
-          {text: 'FINISHED', value: 21},
+          {text: 'STARTING', value: 3},
+          {text: 'RUNNING', value: 5},
+          {text: 'FAILED', value: 6},
+          {text: 'CANCELED', value: 9},
+          {text: 'FINISHED', value: 10},
+          {text: 'LOST', value: 13},
+          {text: 'SILENT', value: 17},
+          {text: 'TERMINATED', value: 18}
         ]
       }, {
         title: 'Launch | Build',
@@ -1159,20 +1153,29 @@ export default {
         dataIndex: 'modifyTime',
         sorter: true,
         sortOrder: sortedInfo.columnKey === 'modifyTime' && sortedInfo.order,
-        width: 180
+        width: 170
       }, {
         dataIndex: 'operation',
         key: 'operation',
         fixed: 'right',
         scopedSlots: {customRender: 'operation'},
         slots: {title: 'customOperation'},
-        width: 220
+        width: 200
       }]
     }
   },
 
   mounted() {
     this.handleDashboard()
+    listUser({'pageSize': '9999'}).then((resp) => {
+      this.users = resp.data.records
+    })
+
+    getUserTeam(
+      {'pageSize': '9999'}
+    ).then((resp) => {
+      this.teamData = resp.data.records
+    })
     this.handleFetch(true)
     const timer = window.setInterval(() => {
       this.handleDashboard()
@@ -1222,24 +1225,13 @@ export default {
       this.jobType = jobType
       this.handleSearch()
     },
-
-    handleCopySuccess() {
-      notification.success({
-        message: 'current jobId copied to clipboard Successfully',
-        duration: 1,
-      })
-    },
-
-    handleChangeJobType(jobType) {
-      this.jobType = jobType == 3 ? null : jobType
+    handleChangeTeam(team) {
+      this.teamId = team
       this.handleSearch()
     },
-
-    handleCopySuccess() {
-      notification.success({
-        message: 'current jobId copied to clipboard Successfully',
-        duration: 1,
-      })
+    handleChangeUser(user) {
+      this.userId = user
+      this.handleSearch()
     },
 
     handleMapping(app) {
@@ -1517,7 +1509,7 @@ export default {
           'error'
         )
       } else {
-        if ( !this.optionApps.starting.get(app.id) || app['optionState'] === 0) {
+        if (!this.optionApps.starting.get(app.id) || app['optionState'] === 0) {
           this.application = app
           latest({
             appId: this.application.id
@@ -1590,7 +1582,7 @@ export default {
                   confirmButtonColor: '#55BDDDFF',
                   confirmButtonText: 'Detail',
                   cancelButtonText: 'Close'
-                }).then((isConfirm) =>{
+                }).then((isConfirm) => {
                   if (isConfirm.value) {
                     this.SetAppId(id)
                     this.$router.push({'path': '/flink/app/detail'})
@@ -1637,7 +1629,7 @@ export default {
       }
 
       if (savePointed) {
-        if ( customSavePoint != null ) {
+        if (customSavePoint != null) {
           verifySchema({
             path: customSavePoint
           }).then(resp => {
@@ -1679,13 +1671,6 @@ export default {
         timer: 2000
       }).then((result) => {
         cancel(stopReq).then((resp) => {
-          if (resp.status === 'error') {
-            this.$swal.fire(
-              'Failed',
-              resp.exception,
-              'error'
-            )
-          }
         })
       })
     },
@@ -1825,6 +1810,8 @@ export default {
       }
       this.queryParams['jobName'] = this.searchText
       this.queryParams['jobType'] = this.jobType
+      this.queryParams['teamId'] = this.teamId
+      this.queryParams['userId'] = this.userId
       this.handleFetch(false)
     },
 
